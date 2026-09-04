@@ -1,0 +1,9 @@
+{
+  "quarantined": [
+    {
+      "spec": "known-flaky pricing probe",
+      "reason": "non-deterministic under DEMO_FAULT=flaky; tracked separately, never blocks a hop",
+      "addedAt": "2026-09-04T00:00:00.000Z"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+node_modules/
+.gate-state/
+*-current.ndjson
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.local.json

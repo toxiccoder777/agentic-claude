@@ -1,0 +1,29 @@
+{
+  "description": "Surfaces an unfinished verification-gate chain at session start, and again before context compaction so the fact isn't lost. Silent when there is nothing to report.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/gate-status.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/gate-status.mjs\" --pre-compact",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "capturedAt": "2026-09-04T18:21:06.278Z",
+  "specs": {
+    "subtotal sums price times quantity": "pass",
+    "subtotal of an empty cart is zero": "pass",
+    "applyDiscount takes a percentage off": "pass",
+    "applyDiscount rejects an out-of-range percent": "pass",
+    "withTax rounds to two decimal places": "pass",
+    "total composes discount and tax": "pass",
+    "known-flaky pricing probe": "pass"
+  }
+}

@@ -1,0 +1,4 @@
+{"route":"cart.applyDiscount","kind":"function","arity":2}
+{"route":"cart.subtotal","kind":"function","arity":1}
+{"route":"cart.total","kind":"function","arity":1}
+{"route":"cart.withTax","kind":"function","arity":2}

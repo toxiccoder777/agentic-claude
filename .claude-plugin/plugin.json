@@ -1,0 +1,25 @@
+{
+  "name": "agentic-claude",
+  "version": "1.0.0",
+  "description": "Curated Claude Code skills and agents for verified legacy modernization — executable gates and frozen baselines instead of prose checklists.",
+  "author": {
+    "name": "toxiccoder777",
+    "url": "https://github.com/toxiccoder777"
+  },
+  "repository": "https://github.com/toxiccoder777/agentic-claude",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "skills",
+    "agents",
+    "verification",
+    "migration",
+    "database"
+  ],
+  "skills": [
+    "./skills/"
+  ],
+  "commands": [
+    "./commands/"
+  ]
+}

@@ -1,0 +1,207 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "verification-gate.config.json",
+  "description": "Per-project configuration for the verification-gate stage machine. Lives in the project root; the gates themselves stay framework-agnostic and read everything project-specific from here.",
+  "type": "object",
+  "required": ["stages", "gates"],
+  "properties": {
+    "baselineDir": {
+      "type": "string",
+      "default": ".verification-baseline",
+      "description": "Directory holding frozen baselines and the validity report. Commit it — a baseline that is not versioned is not frozen."
+    },
+    "stateDir": {
+      "type": "string",
+      "default": ".gate-state",
+      "description": "Where state.json and per-gate result JSON are written. Gitignore this."
+    },
+    "freshness": {
+      "type": "object",
+      "description": "Fixture-freshness gating. Checked once before any gate runs, if any staged gate sets requiresBaseline.",
+      "properties": {
+        "validityReport": { "type": "string", "default": "validity-report.json" },
+        "maxAgeHours": { "type": "number", "default": 24 },
+        "required": {
+          "type": "boolean",
+          "default": true,
+          "description": "When false, a missing validity report is tolerated. Only sensible for gates that compare nothing captured."
+        }
+      }
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "Gate ids in execution order. Every entry must have a matching key under \"gates\"."
+    },
+    "gates": {
+      "type": "object",
+      "description": "Gate id to configuration. A gate id resolves to scripts/gates/gate-<id>.mjs, then scripts/modules/gate-<id>.mjs, then the gate's own \"script\" path.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": { "type": "boolean", "default": true },
+          "required": {
+            "type": "boolean",
+            "default": true,
+            "description": "When true, a non-zero exit halts the chain. When false, the chain reports and continues."
+          },
+          "requiresBaseline": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether this gate reads a frozen baseline, and therefore whether the chain must validate fixture freshness before starting."
+          },
+          "script": {
+            "type": "string",
+            "description": "Path to a custom gate script, relative to the project root. Overrides the built-in lookup."
+          },
+
+          "command": {
+            "type": "string",
+            "description": "unit, flaky: shell command that runs the suite."
+          },
+          "format": {
+            "type": "string",
+            "enum": ["tap", "custom"],
+            "default": "tap",
+            "description": "unit, flaky: how to read the runner's output."
+          },
+          "parser": {
+            "type": "string",
+            "description": "unit, flaky: with format \"custom\", path to an .mjs exporting parse(stdout, stderr) -> [{ name, status }]."
+          },
+          "resultsFile": {
+            "type": "string",
+            "description": "unit, flaky: read results from this file instead of stdout. Its absence is treated as a runner that did not complete."
+          },
+          "baseline": {
+            "type": "string",
+            "description": "Baseline filename inside baselineDir."
+          },
+          "quarantine": {
+            "type": "string",
+            "default": "quarantine.json",
+            "description": "unit: specs listed here report but never block. Each entry needs a spec and a reason."
+          },
+          "minObserved": {
+            "type": "integer",
+            "default": 1,
+            "description": "Fewest results a healthy run produces. Below this the gate is BLOCKED, not passed. Set it deliberately — the default of 1 only catches a total crash."
+          },
+          "shrinkTolerance": {
+            "type": "number",
+            "default": 0.1,
+            "description": "Fraction the observed count may fall below the baseline count before the run is treated as broken rather than smaller."
+          },
+          "runs": {
+            "type": "integer",
+            "default": 3,
+            "minimum": 2,
+            "description": "flaky: repeated trials used to separate flaky from broken."
+          },
+
+          "captureCommand": {
+            "type": "string",
+            "description": "integration, visual: project-owned command that produces the fresh capture."
+          },
+          "captureOutput": {
+            "type": "string",
+            "description": "integration, visual: NDJSON file the capture command writes."
+          },
+          "key": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "integration, visual: fields identifying a record across captures."
+          },
+          "compare": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "integration, visual: fields diffed on records the baseline covers. An empty list is rejected — it would pass trivially."
+          },
+          "classify": {
+            "type": "array",
+            "description": "integration, visual: rules moving a confirmed-cause finding from blocking to reported. Every rule needs a reason; rules without one are rejected.",
+            "items": {
+              "type": "object",
+              "required": ["reason", "when"],
+              "properties": {
+                "id": { "type": "string" },
+                "reason": { "type": "string", "description": "The confirmed root cause. This is printed next to the finding." },
+                "when": {
+                  "type": "object",
+                  "minProperties": 1,
+                  "additionalProperties": { "type": "string" },
+                  "description": "Finding field to regex. All must match."
+                }
+              }
+            }
+          },
+
+          "scope": {
+            "type": "string",
+            "enum": ["all", "changed"],
+            "default": "all",
+            "description": "secrets: scan everything matching include, or only files changed against baseRef."
+          },
+          "include": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "secrets: globs to scan. Matching zero files is BLOCKED, not clean."
+          },
+          "debugGlobs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "secrets: subset also checked for debugger and stray console statements. Keep CLI entry points out of it."
+          },
+          "patterns": {
+            "type": "array",
+            "description": "secrets: extra patterns beyond the built-ins.",
+            "items": {
+              "type": "object",
+              "required": ["id", "pattern"],
+              "properties": {
+                "id": { "type": "string" },
+                "pattern": { "type": "string" },
+                "what": { "type": "string" }
+              }
+            }
+          },
+          "allowlist": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "secrets: rule ids demoted to reported. Prefer an inline verification-gate:allow-secret comment on the specific line."
+          },
+
+          "baseRef": {
+            "type": "string",
+            "default": "HEAD~1",
+            "description": "contract, secrets(changed): git ref to diff against."
+          },
+          "sourceGlobs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "contract: files whose change demands a test change."
+          },
+          "testGlobs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "contract: files that count as tests."
+          },
+          "requiredSpecs": {
+            "type": "array",
+            "description": "contract: the strong form. Names the specific spec a kind of source change must be covered by, so touching an unrelated test cannot satisfy the rule.",
+            "items": {
+              "type": "object",
+              "required": ["when", "spec"],
+              "properties": {
+                "when": { "type": "string", "description": "Glob over changed source paths." },
+                "spec": { "type": "string", "description": "Exact spec path that must also have changed." },
+                "reason": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

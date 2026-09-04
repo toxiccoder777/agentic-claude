@@ -1,0 +1,60 @@
+{
+  "baselineDir": ".verification-baseline",
+  "stateDir": ".gate-state",
+  "freshness": {
+    "validityReport": "validity-report.json",
+    "maxAgeHours": 24,
+    "required": true
+  },
+  "stages": ["secrets", "unit", "integration"],
+  "gates": {
+    "secrets": {
+      "required": true,
+      "scope": "all",
+      "include": ["src/**/*.mjs", "tests/**/*.mjs", "tools/**/*.mjs"],
+      "debugGlobs": ["src/**/*.mjs"]
+    },
+    "unit": {
+      "required": true,
+      "requiresBaseline": true,
+      "command": "node tests/run.mjs",
+      "format": "tap",
+      "baseline": "test-baseline.json",
+      "quarantine": "quarantine.json",
+      "minObserved": 5,
+      "shrinkTolerance": 0.1
+    },
+    "integration": {
+      "required": true,
+      "requiresBaseline": true,
+      "captureCommand": "node tools/capture-surface.mjs",
+      "captureOutput": "surface-current.ndjson",
+      "baseline": "surface-baseline.ndjson",
+      "key": ["route"],
+      "compare": ["kind", "arity"],
+      "minObserved": 3,
+      "classify": [
+        {
+          "id": "known-arity-shift",
+          "when": { "where": "^cart\\.withTax$", "field": "^arity$" },
+          "reason": "withTax gained an optional rounding argument in the 2.x refactor; confirmed backward compatible by hand"
+        }
+      ]
+    },
+    "flaky": {
+      "enabled": false,
+      "required": false,
+      "command": "node tests/run.mjs",
+      "format": "tap",
+      "runs": 5,
+      "minObserved": 5
+    },
+    "_contract_disabled_no_git_history": {
+      "enabled": false,
+      "required": true,
+      "baseRef": "HEAD~1",
+      "sourceGlobs": ["src/**/*.mjs"],
+      "testGlobs": ["tests/**/*.mjs"]
+    }
+  }
+}

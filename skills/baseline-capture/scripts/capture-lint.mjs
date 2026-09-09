@@ -38,6 +38,7 @@ function usage() {
   --format ndjson|json (default: ndjson)
 
 Exit 0: structurally sound. Exit 1: not fit to freeze as a baseline.
+Exit 2: could not judge it at all (missing, unreadable, or empty capture).
 Non-determinism warnings are reported but do not fail this check — that's
 idempotency-check.mjs's job, which needs to actually run the capture twice.
 `);
@@ -52,7 +53,7 @@ function main() {
 
   if (!existsSync(opts.file)) {
     console.error(`BLOCKED: ${opts.file} does not exist — the capture command did not produce it`);
-    return 1;
+    return 2;
   }
 
   const keyFields = parseFieldList(opts.key);
@@ -63,12 +64,12 @@ function main() {
     records = readRecords(opts.file, opts.format);
   } catch (err) {
     console.error(`BLOCKED: ${err.message}`);
-    return 1;
+    return 2;
   }
 
   if (records.length === 0) {
     console.error('BLOCKED: capture produced zero records — an empty capture is not a baseline, it is a broken run');
-    return 1;
+    return 2;
   }
 
   let failed = false;

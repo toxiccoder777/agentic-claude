@@ -1,7 +1,7 @@
 {
   "name": "agentic-claude",
-  "version": "1.0.0",
-  "description": "Curated Claude Code skills and agents for verified legacy modernization — executable gates and frozen baselines instead of prose checklists.",
+  "version": "1.1.0",
+  "description": "Claude Code skills and agents that prove a change did not break anything — executable gates and frozen baselines, not prose checklists.",
   "author": {
     "name": "toxiccoder777",
     "url": "https://github.com/toxiccoder777"
@@ -14,7 +14,9 @@
     "agents",
     "verification",
     "migration",
-    "database"
+    "database",
+    "git",
+    "merge-conflicts"
   ],
   "skills": [
     "./skills/"

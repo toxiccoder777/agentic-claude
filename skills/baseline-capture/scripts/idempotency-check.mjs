@@ -45,6 +45,7 @@ function usage() {
 Exit 0: every compare field was identical across all runs, for every key.
 Exit 1: at least one field varied — name it, and do not put it in a gate's
 "compare" list until the capture is fixed to normalize or omit it.
+Exit 2: a run produced nothing usable, so determinism could not be judged.
 `);
 }
 
@@ -69,18 +70,18 @@ function main() {
     const run = spawnSync(opts.command, { shell: true, cwd: opts.cwd, encoding: 'utf8' });
     if (!existsSync(outputPath)) {
       console.error(`BLOCKED: run ${attempt + 1} produced no ${opts.output}${run.stderr ? ` (${run.stderr.trim().split('\n')[0]})` : ''}`);
-      return 1;
+      return 2;
     }
     let records;
     try {
       records = readRecords(outputPath, opts.format);
     } catch (err) {
       console.error(`BLOCKED: run ${attempt + 1} output unreadable: ${err.message}`);
-      return 1;
+      return 2;
     }
     if (records.length === 0) {
       console.error(`BLOCKED: run ${attempt + 1} produced zero records`);
-      return 1;
+      return 2;
     }
     captures.push(new Map(records.map((r) => [keyOf(r, keyFields), r])));
   }

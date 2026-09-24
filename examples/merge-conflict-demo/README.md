@@ -26,8 +26,11 @@ skipped as git-managed.
 
 ## Walking through it
 
+You are now inside the fixture (a temp dir), so point `S` at this repo by absolute path rather than
+a relative one — `../../` would resolve inside the temp dir, where nothing exists:
+
 ```bash
-S=../../skills/merge-conflict-resolution/scripts     # adjust to taste
+S=/path/to/agentic-claude/skills/merge-conflict-resolution/scripts
 node $S/snapshot-conflicts.mjs --cwd .
 ```
 

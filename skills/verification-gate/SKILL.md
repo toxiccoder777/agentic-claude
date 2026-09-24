@@ -86,11 +86,15 @@ BLOCKED is never a pass. A gate that cannot judge a change has not cleared it.
 
 3. Run the chain:
 
+Run it from the project being gated — the path below resolves wherever the plugin is installed, and
+`--project` is the repo you are checking, not the skill:
+
 ```bash
-node scripts/gate-runner.mjs --project .
-node scripts/gate-runner.mjs --project . --resume     # after fixing a failure
-node scripts/gate-runner.mjs --project . --only unit  # one gate, ad hoc
-node scripts/gate-runner.mjs --project . --list
+G="${CLAUDE_PLUGIN_ROOT}/skills/verification-gate/scripts/gate-runner.mjs"
+node "$G" --project .
+node "$G" --project . --resume     # after fixing a failure
+node "$G" --project . --only unit  # one gate, ad hoc
+node "$G" --project . --list
 ```
 
 ## Gates

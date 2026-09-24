@@ -102,13 +102,17 @@ node scripts/verify-manifest.mjs   --cwd <repo> --manifest manifest.json
    discarded — never correct, always a failure. Byte-identical to ours or theirs is a wholesale
    side-drop: legal, but only when declared.
 4. **No out-of-hunk edits.** Regenerates git's own conflicted output and asserts every line git had
-   *already merged* survives, in order. Those lines were never in dispute; editing them while
-   "resolving a conflict" is scope creep that hides in a merge commit.
+   *already merged* survives — both in order and in count. Those lines were never in dispute; editing
+   them while "resolving a conflict" is scope creep that hides in a merge commit. This check is
+   strong, not airtight: a hunk body that happens to contain extra copies of a context line can still
+   mask its deletion, and `references/why-markers-are-not-enough.md` says so rather than pretending
+   otherwise.
 5. **Both-sides-agreed lines kept.** When a line appears identically in both alternatives *inside* a
    conflict region, dropping it is almost always an accident of hand-editing.
-6. **Line endings and final newline** unchanged, unless git manages them (`core.autocrlf`, a `text`
-   attribute) — in which case the check is skipped and says so, because then the worktree's EOL is
-   git's doing and not the resolver's.
+6. **Line endings and final newline** unchanged. The EOL-style half is skipped, and says so, when git
+   manages line endings (`core.autocrlf`, a `text`/`eol` attribute) — there the worktree's EOL is
+   git's doing, not the resolver's. The final-newline half always runs, since git doesn't add or
+   remove one on checkout.
 
 ## The manifest enforces claims, not prose
 

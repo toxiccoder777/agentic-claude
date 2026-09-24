@@ -11,7 +11,7 @@ metadata:
 
 # Baseline capture
 
-`verification-gate`'s `references/coverage-partitioning.md` puts it plainly: **gates diff, projects
+`verification-gate`'s `SKILL.md` puts it plainly: **gates diff, projects
 capture.** Screenshotting an app, proxying its HTTP traffic, fingerprinting its DOM — all of it is
 irreducibly project-specific, which is why the skill doesn't try to own it. This skill exists to fill
 that gap: guidance and two small tools for making a capture script actually trustworthy, so the gate
@@ -48,7 +48,7 @@ node scripts/capture-lint.mjs --file surface-baseline.ndjson --key route --compa
 Checks: file exists and parses; non-empty; every record has its key and compare fields; no duplicate
 keys. Also warns (non-blocking) when a compare field's value looks like a timestamp, UUID, port, or
 PID — a strong hint it doesn't belong in `compare` without normalization first. Exit 0 structurally
-sound, exit 1 not fit to freeze.
+sound, exit 1 not fit to freeze, exit 2 could not judge it at all — missing, unreadable or empty.
 
 ### `scripts/idempotency-check.mjs` — the real determinism test
 
@@ -63,7 +63,8 @@ node scripts/idempotency-check.mjs \
 Runs the capture command `--runs` times (default 2), reads the output fresh each time, and diffs
 every compare field per key across all runs. Anything that differs **cannot** be a valid regression
 signal — nothing else ran in between. Exit 0 means every compare field was stable across every run;
-exit 1 names exactly which field, on which key, varied and how.
+exit 1 names exactly which field, on which key, varied and how; exit 2 means a run produced nothing
+usable, so determinism could not be judged — which is not the same as it being stable.
 
 **This is the check that matters.** `capture-lint.mjs` catches structural mistakes; only
 `idempotency-check.mjs` proves determinism, because determinism is a claim about repeated behavior,

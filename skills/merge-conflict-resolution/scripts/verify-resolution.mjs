@@ -19,11 +19,23 @@ import { tmpdir } from 'node:os';
 import {
   isRepo, gitPath, readUnmerged, readStage, hashObject, conflictMarkerSize, git, isBinary,
 } from './lib/git.mjs';
-import { parseConflicted, leftoverMarkers, firstMissingInOrder } from './lib/conflict-regions.mjs';
+import {
+  parseConflicted, leftoverMarkers, firstMissingInOrder, missingByCount,
+} from './lib/conflict-regions.mjs';
 
 const EXIT = { PASS: 0, FAIL: 1, BLOCKED: 2 };
 
-const WHOLESALE = { 'ours-wholesale': 'ours', 'theirs-wholesale': 'theirs' };
+// Null-prototype: a plain object literal answers truthily to "constructor",
+// "toString" and friends, which would let strategy:"constructor" silently
+// switch off checks 4 and 5.
+const WHOLESALE = Object.assign(Object.create(null), {
+  'ours-wholesale': 'ours',
+  'theirs-wholesale': 'theirs',
+});
+
+const STRATEGIES = new Set([
+  'ours-wholesale', 'theirs-wholesale', 'union', 'interleaved', 'rewritten', 'deleted',
+]);
 
 function args() {
   const argv = process.argv.slice(2);
@@ -93,8 +105,14 @@ function regenerateConflict(path, cwd, size) {
       cwd,
       { encoding: 'buffer' }
     );
-    // merge-file exits with the conflict count; only a negative/!=0-with-no-output
-    // case is a real failure.
+    // merge-file exits with the conflict count on success (0-127) and 255 on
+    // error — e.g. "Cannot merge binary files", which it decides by inspecting
+    // all three stages, so a text-looking ours/theirs is no guarantee.
+    //
+    // Testing stdout instead is a trap: an error produces a zero-length Buffer,
+    // and an empty Buffer is truthy, so `!run.stdout` never fires and the error
+    // reads as a successful empty merge. Checks 4 and 5 then assert nothing.
+    if (run.error || run.status === null || run.status < 0 || run.status > 127) return null;
     if (!run.stdout) return null;
     return run.stdout.toString('utf8');
   } catch {
@@ -192,6 +210,18 @@ function main() {
     const strategy = claim?.strategy ?? null;
     const abs = resolve(cwd, file.path);
 
+    // This script also runs standalone, so it cannot rely on verify-manifest
+    // having vetted the strategy first. An unrecognised value must not quietly
+    // behave like a relaxing one.
+    if (strategy !== null && !STRATEGIES.has(strategy)) {
+      blocking.push({
+        check: 'unknown-strategy',
+        path: file.path,
+        detail: `manifest declares strategy "${strategy}", which is not one of ${[...STRATEGIES].join(', ')}`,
+      });
+      continue;
+    }
+
     if (file.needsHumanDecision) {
       const why = file.submodule ? 'submodule' : file.symlink ? 'symlink' : file.binary ? 'binary' : `missing stage (${file.code})`;
       if (!strategy) {
@@ -218,8 +248,13 @@ function main() {
     const size = conflictMarkerSize(file.path, cwd);
 
     // --- Check 2: no leftover markers ---------------------------------------
+    // strict, because this path is IN THE SNAPSHOT — it was definitely
+    // conflicted. The setext-heading benefit of the doubt that a lone `=======`
+    // gets on an arbitrary file is not owed to a file we know git just wrote
+    // markers into; extending it here let a resolution that deleted only the
+    // <<<<<<< and >>>>>>> lines pass the whole suite.
     if (!isBinary(resolvedBuf)) {
-      const markers = leftoverMarkers(resolvedBuf.toString('utf8'), size);
+      const markers = leftoverMarkers(resolvedBuf.toString('utf8'), size, { strict: true });
       for (const m of markers) {
         blocking.push({ check: 'markers', path: file.path, detail: `line ${m.line}: leftover conflict marker (${m.kind}) "${m.text.slice(0, 40)}"` });
       }
@@ -257,6 +292,18 @@ function main() {
       blockedReasons.push(`${file.path}: could not regenerate git's conflicted output, so scope cannot be checked`);
     } else {
       const parsed = parseConflicted(regenerated, size);
+
+      // An unclosed region means the tail of the file was never classified as
+      // context or as an alternative, so scope genuinely cannot be judged.
+      // Ignoring this let a resolution delete lines after a stale committed
+      // marker with nothing noticing.
+      if (parsed.unterminated) {
+        blockedReasons.push(
+          `${file.path}: git's conflicted output has an unterminated region (likely a stale conflict marker already committed in one of the sides) — the lines after it cannot be classified, so scope cannot be checked`
+        );
+        continue;
+      }
+
       // Scope is about content, not line endings — the worktree copy may be CRLF
       // while the stage blobs are LF. Check 6 owns EOL; comparing it here would
       // just make every file on Windows look out-of-scope.
@@ -269,8 +316,17 @@ function main() {
       }
 
       if (strategy !== 'rewritten' && !WHOLESALE[strategy]) {
+        const short = missingByCount(parsed.context, resolvedLines);
+        if (short) {
+          blocking.push({
+            check: 'out-of-hunk-edit',
+            path: file.path,
+            detail: `"${short.line.slice(0, 60)}" appears ${short.expected}x outside the conflict regions but only ${short.found}x in the resolution — a line git had already merged was deleted`,
+          });
+        }
+
         const miss = firstMissingInOrder(parsed.context, resolvedLines);
-        if (miss) {
+        if (miss && !short) {
           blocking.push({
             check: 'out-of-hunk-edit',
             path: file.path,
@@ -345,4 +401,12 @@ function main() {
   return EXIT.PASS;
 }
 
-process.exit(main());
+// An unexpected throw means this script could not judge the resolution — which
+// is BLOCKED, not FAIL. Letting it escape would exit 1 and send someone to
+// debug a regression that was never diagnosed.
+try {
+  process.exit(main());
+} catch (err) {
+  console.error(`BLOCKED: verify-resolution failed unexpectedly: ${err.message}`);
+  process.exit(EXIT.BLOCKED);
+}

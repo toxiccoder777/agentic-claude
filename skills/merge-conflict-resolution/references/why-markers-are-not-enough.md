@@ -64,3 +64,20 @@ checker that cries wolf gets disabled, and a disabled checker has a 100% false-n
 Keep the marker scan — it is cheap and it catches the common case. Just don't mistake it for
 verification. Pair it with checks against the three stages, and make the no-marker conflict types
 report BLOCKED rather than passing quietly.
+
+## What the stage checks still can't prove
+
+Being straight about the residual holes, since the whole argument here is against tools that imply
+more coverage than they have:
+
+- **Out-of-hunk detection is not airtight.** It asserts that every line git already merged survives,
+  in order and in count, but it cannot tell which resolved lines came from a hunk. A hunk body that
+  contributes extra copies of a common line — `}`, `)`, a blank line — can mask that the same line
+  was deleted from the surrounding context. Order plus count closes most of the gap; it does not
+  close all of it.
+- **Both-sides-agreed is a presence test, not a position test.** An agreed `}` is satisfied by any
+  `}` anywhere in the file, which makes the check close to vacuous on very common lines. It is
+  deliberately lenient to avoid false failures on a legitimate re-indent.
+- **None of it judges meaning.** Every check here is about provenance and scope. Two changes can
+  combine into something marker-free, in-scope, correctly attributed and still wrong, and no amount
+  of blob comparison will notice. That is what review and tests are for.

@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-09-08T11:37:31.936Z",
+  "capturedAt": "2026-09-24T09:54:41.603Z",
   "specs": {
     "subtotal sums price times quantity": "pass",
     "subtotal of an empty cart is zero": "pass",

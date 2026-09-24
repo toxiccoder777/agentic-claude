@@ -98,7 +98,7 @@ plan-migration → baseline → change → verify-gate → merge → review-diff
 |---|---|---|
 | **Skills** | 4 | verification gates, database migration, baseline capture, merge conflicts |
 | **Agents** | 7 | orchestration, planning, auditing, review, security, git |
-| **Commands** | 8 | one per agent, plus scaffolding |
+| **Commands** | 8 | thin wrappers over the agents, plus scaffolding |
 | **Hooks** | 2 | surface an unfinished gate chain across restarts and compaction |
 
 ### Skills
@@ -137,8 +137,9 @@ plan-migration → baseline → change → verify-gate → merge → review-diff
 
 Two runnable demos, both dependency-free:
 [`verification-gate-demo`](examples/verification-gate-demo/) (ten scenarios, including the ones
-designed to fail) and [`merge-conflict-demo`](examples/merge-conflict-demo/) (one conflict of every
-type git produces).
+designed to fail) and [`merge-conflict-demo`](examples/merge-conflict-demo/) (six conflicts covering
+`UU`, `AA` and `DU`, plus binary and whitespace-only cases). The latter also ships
+`run-checks.mjs`, which asserts the verifiers' exit codes against generated fixtures.
 
 ## Philosophy
 
@@ -160,6 +161,13 @@ Every skill here has to answer two questions:
 | Empty run | Reads as clean | BLOCKED — an empty scan is not a clean scan |
 | Partial coverage | Fails everything, then gets disabled | Covered blocks; uncovered reports, and says so |
 | Flaky spec | Quarantine on first red | pass@k separates flaky from broken |
+
+One honest exception: **`db-migration` ships no scripts.** It is procedural guidance, and by the strict
+reading of the table above it is the very thing the left column describes. It stays because what it
+enforces is enforced by Postgres rather than by Node — a migration assembled as one script and run
+under `psql -v ON_ERROR_STOP=1 -1` either lands whole or rolls back, and the skill's substance is the
+sequencing and diffing discipline that gets you to that point. Worth naming rather than letting the
+table imply four-for-four.
 
 Corollaries, each of which cost a real bug to learn:
 

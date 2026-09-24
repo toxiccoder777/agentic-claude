@@ -36,7 +36,7 @@
     },
     "gates": {
       "type": "object",
-      "description": "Gate id to configuration. A gate id resolves to scripts/gates/gate-<id>.mjs, then scripts/modules/gate-<id>.mjs, then the gate's own \"script\" path.",
+      "description": "Gate id to configuration. Resolution order: the gate's own \"script\" path wins if set (an explicit override should beat a convention), otherwise scripts/gates/gate-<id>.mjs, then scripts/modules/gate-<id>.mjs.",
       "additionalProperties": {
         "type": "object",
         "properties": {
@@ -174,8 +174,7 @@
 
           "baseRef": {
             "type": "string",
-            "default": "HEAD~1",
-            "description": "contract, secrets(changed): git ref to diff against."
+            "description": "git ref to diff against. The defaults differ by gate on purpose: contract uses HEAD~1 (what the last commit changed), secrets with scope \"changed\" uses HEAD (what you are about to commit, which is the thing worth scanning before it lands)."
           },
           "sourceGlobs": {
             "type": "array",

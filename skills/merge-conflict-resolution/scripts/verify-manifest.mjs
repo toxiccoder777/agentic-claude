@@ -170,4 +170,9 @@ Exit 0 manifest is honest and complete, 1 a claim is contradicted or missing,
   return EXIT.PASS;
 }
 
-process.exit(main());
+try {
+  process.exit(main());
+} catch (err) {
+  console.error(`BLOCKED: verify-manifest failed unexpectedly: ${err.message}`);
+  process.exit(EXIT.BLOCKED);
+}

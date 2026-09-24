@@ -18,6 +18,14 @@ export function markerRegex(size) {
   };
 }
 
+/**
+ * Returns `context`, `regions`, and `unterminated`.
+ *
+ * `unterminated` is load-bearing: a file whose last region never closes means
+ * every line after it was never classified, so scope cannot be judged. Callers
+ * must treat it as BLOCKED rather than ignoring it — silently dropping the tail
+ * is how a deleted line in that tail becomes invisible.
+ */
 export function parseConflicted(text, size = 7) {
   const re = markerRegex(size);
   const lines = text.split('\n');
@@ -27,11 +35,25 @@ export function parseConflicted(text, size = 7) {
 
   let state = 'context';
   let current = null;
+  let currentRaw = [];
+  let unterminated = false;
+
+  const abandon = () => {
+    // A nested or repeated start marker means the previous region never closed.
+    // Its lines are unclassified, so they go back to context rather than being
+    // dropped on the floor, and the file is flagged unjudgeable.
+    unterminated = true;
+    context.push(...currentRaw);
+    current = null;
+    currentRaw = [];
+  };
 
   for (const line of lines) {
     if (re.start.test(line)) {
+      if (current) abandon();
       state = 'ours';
       current = { ours: [], base: [], theirs: [] };
+      currentRaw = [];
       continue;
     }
     if (current && re.base.test(line)) {
@@ -45,15 +67,22 @@ export function parseConflicted(text, size = 7) {
     if (current && re.end.test(line)) {
       regions.push(current);
       current = null;
+      currentRaw = [];
       state = 'context';
       continue;
     }
 
-    if (state === 'context') context.push(line);
-    else if (current) current[state].push(line);
+    if (state === 'context') {
+      context.push(line);
+    } else if (current) {
+      current[state].push(line);
+      currentRaw.push(line);
+    }
   }
 
-  return { context, regions, unterminated: current !== null };
+  if (current) abandon();
+
+  return { context, regions, unterminated };
 }
 
 /** Every marker-looking line in a file, using git's exactly-N rule. */
@@ -72,17 +101,24 @@ export function findMarkers(text, size = 7) {
 }
 
 /**
- * A bare `=======` is also a Markdown setext heading underline, so a separator
- * only counts as a leftover conflict marker when it sits between a start and an
- * end marker. Start/end markers are unambiguous on their own.
+ * A bare `=======` is also a Markdown setext heading underline, so on an
+ * arbitrary file a lone separator is ambiguous. It is reported with
+ * `suspect: true` rather than dropped — an unexplained maybe-marker is still
+ * worth a human glance, and silently discarding it is how a real leftover
+ * separator sails through.
+ *
+ * On a file known to have been conflicted there is no ambiguity to extend
+ * credit to: pass `strict` and every marker blocks.
  */
-export function leftoverMarkers(text, size = 7) {
+export function leftoverMarkers(text, size = 7, { strict = false } = {}) {
   const all = findMarkers(text, size);
-  const hasBracket = all.some((m) => m.kind === 'start') && all.some((m) => m.kind === 'end');
-  return all.filter((m) => {
-    if (m.kind === 'start' || m.kind === 'end') return true;
-    return hasBracket;
-  });
+  if (strict) return all.map((m) => ({ ...m, suspect: false }));
+
+  const bracketed = all.some((m) => m.kind === 'start') && all.some((m) => m.kind === 'end');
+  return all.map((m) => ({
+    ...m,
+    suspect: (m.kind === 'separator' || m.kind === 'base') && !bracketed,
+  }));
 }
 
 /** Is `needle` an in-order subsequence of `haystack`? Returns the first miss. */
@@ -99,6 +135,40 @@ export function firstMissingInOrder(needle, haystack) {
       h++;
     }
     if (!found) return { index: n, line: needle[n] };
+  }
+  return null;
+}
+
+/**
+ * Subsequence matching alone has a known hole: the greedy cursor can satisfy a
+ * context line with a line the resolver wrote *inside* a hunk, so deleting the
+ * first context line after a region is invisible whenever the hunk body happens
+ * to contain the same string. `}`, `)` and blank lines are both the commonest
+ * lines in code and the commonest thing at a region boundary, so this is not
+ * exotic.
+ *
+ * Counting closes most of it: a context line must appear at least as often in
+ * the resolution as it did in the context. It is not airtight — a hunk body that
+ * contributes extra copies can still mask a deletion — and
+ * `references/why-markers-are-not-enough.md` says so rather than pretending
+ * otherwise.
+ */
+export function missingByCount(context, resolvedLines) {
+  const need = new Map();
+  for (const line of context) {
+    if (line.trim() === '') continue;
+    need.set(line, (need.get(line) ?? 0) + 1);
+  }
+
+  const have = new Map();
+  for (const line of resolvedLines) {
+    have.set(line, (have.get(line) ?? 0) + 1);
+  }
+
+  for (const [line, count] of need) {
+    if ((have.get(line) ?? 0) < count) {
+      return { line, expected: count, found: have.get(line) ?? 0 };
+    }
   }
   return null;
 }

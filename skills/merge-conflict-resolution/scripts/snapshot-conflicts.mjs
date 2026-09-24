@@ -131,4 +131,9 @@ Exit 0 conflicts recorded, 2 nothing to resolve or not a repo.
   return EXIT.PASS;
 }
 
-process.exit(main());
+try {
+  process.exit(main());
+} catch (err) {
+  console.error(`BLOCKED: snapshot-conflicts failed unexpectedly: ${err.message}`);
+  process.exit(EXIT.BLOCKED);
+}

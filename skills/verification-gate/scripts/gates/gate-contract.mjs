@@ -16,8 +16,19 @@ function args() {
 }
 
 const { project, id } = args();
-const config = loadConfig(project);
-const gate = gateConfig(config, id);
+// Loading config at module scope means a missing or malformed config throws
+// before runGate() exists to catch it. Unguarded, Node prints a stack trace and
+// exits 1 — reporting "fix your code" for what is a fixture problem. These
+// scripts are documented as standalone-invocable, so this path is reachable.
+let config;
+let gate;
+try {
+  config = loadConfig(project);
+  gate = gateConfig(config, id);
+} catch (err) {
+  console.error(`BLOCKED: ${err.message}`);
+  process.exit(2);
+}
 
 await runGate(id, config.statePath, async (result) => {
   const baseRef = gate.baseRef ?? 'HEAD~1';

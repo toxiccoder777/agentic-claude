@@ -27,7 +27,7 @@ node $RUNNER --project .
 ```
 ```
 [chain] baseline validated, 0.0h old
-[secrets] PASS (scanned=4 findings=0)
+[secrets] PASS (scanned=5 findings=0)
 [unit] PASS (observed=7 baseline=7 regressions=0 quarantined=1 exit=0)
 [integration] PASS (observed=4 baseline=4 blocking=0 explained=0 uncovered=0)
 [chain] PASS — 3 stage(s) cleared.
@@ -134,9 +134,10 @@ node $RUNNER --project . --only secrets
 rm src/leak-probe.mjs
 ```
 ```
-[secrets] FAIL (scanned=4 findings=2)
-  BLOCKING  AWS access key id [src/leak-probe.mjs:2]
-  BLOCKING  stray console statement [src/leak-probe.mjs:3]
+[secrets] FAIL (scanned=6 findings=2)
+  BLOCKING  AWS access key id [src/leak-probe.mjs:1]
+  BLOCKING  stray console statement [src/leak-probe.mjs:2]
+[chain] halted at "secrets" (FAIL). Later stages did not run.
 ```
 
 ### 10. pass@k separates flaky from broken
